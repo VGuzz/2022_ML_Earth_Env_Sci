@@ -96,7 +96,7 @@ plt.subplots_adjust(hspace=0.25)
 
 
 k = 3 # number of clusters to test
-rnd_seed = 2
+rnd_seed = 2022
 rnd_gen = np.random.default_rng(rnd_seed);
 
 km1 = KMeans(n_clusters=k,random_state = rnd_seed); # Random seed
@@ -143,21 +143,20 @@ best_inertia = inertias[best_index]
 
 # Figure of the metrics
 
-fig, ax = plt.subplots(2,1,figsize=(18,6))
+fig, ax = plt.subplots(2,1,figsize=(8,4))
 ax[0].plot(k_list, silhouette_scores, "bo-") 
-ax[0].set_xlabel("$k$", fontsize=14) 
 ax[0].set_ylabel("Silhouette", fontsize=14)
 ax[0].plot(best_k, best_score, "rs")
-ax[0].set_title('Silhouette score')
+ax[0].set_title('Silhouette score',fontsize=16)
 
 ax[1].plot(k_list, inertias, "bo-") 
 ax[1].plot(best_k, best_inertia, "rs")
 ax[1].set_xlabel("$k$", fontsize=14) 
 ax[1].set_ylabel("Inertia", fontsize=14)
-ax[1].set_title('Inertia score')
-plt.subplots_adjust(hspace=0.5)
+ax[1].set_title('Inertia score',fontsize=16)
+plt.subplots_adjust(hspace=0.6)
 
-# Over space
+# Over space ===> not working <===
 
 # Silhouette scores metric
 
@@ -188,16 +187,16 @@ plt.subplots_adjust(hspace=0.5)
 
 fig, ax = plt.subplots(figsize=(16, 6));
 ax.scatter(Date_num, y_km1 );
-ax.set_xlabel('Time [Months]');
-ax.set_ylabel('Regime of concentration');
-ax.set_title('Clustering of the concentration over the time');
+ax.set_xlabel('Time [Months]',fontsize=14);
+ax.set_ylabel('Regime of concentration',fontsize=14);
+ax.set_title('Clustering of the concentration over the time',fontsize=16);
 ax.set_xticks(np.arange(0, 324, step=12),
                 ['1993','1994','1995','1996','1997','1998','1999','2000','2001','2002',
                 '2003','2004','2005','2006','2007','2008','2009','2010','2011','2012',
-                '2013','2014','2015','2016','2017','2018','2019']);
-ax.set_yticks(np.arange(0, 3, step=1));
+                '2013','2014','2015','2016','2017','2018','2019'],fontsize=11);
+ax.set_yticks(np.arange(0, 3, step=1),fontsize=11);
 
-fig, ax = plt.subplots(figsize=(16, 6));
+fig, ax = plt.subplots(figsize=(10, 4));
 ax.scatter(Range_ID, y_km2 );
 ax.set_xlabel('Station ID');
 ax.set_ylabel('Regime of concentration');
