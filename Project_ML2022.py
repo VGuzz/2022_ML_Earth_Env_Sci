@@ -96,7 +96,7 @@ plt.subplots_adjust(hspace=0.25)
 
 
 k = 3 # number of clusters to test
-rnd_seed = 2022
+rnd_seed = 2
 rnd_gen = np.random.default_rng(rnd_seed);
 
 km1 = KMeans(n_clusters=k,random_state = rnd_seed); # Random seed
