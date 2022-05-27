@@ -2,24 +2,37 @@
 """
 Project Machine Learning - 2022
 
-Vincenzo Guzzardi
+Prediction of Ammonium concentration in a river using
+unsupervised Machine Learning
+
+Vincenzo Guzzardi, 2022
+
+Some parts come from the Notebook 4.2 of the ML course
+by T. Beucler and M. Gomez, 2022
+https://github.com/VGuzz/2022_ML_Earth_Env_Sci/blob/main/S4_2_Clustering_exercises_Vincenzo.ipynb
+
 """
+#%% ======================= Importations =======================
 # import library
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import sklearn
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 
 # import data csv
-df = pd.read_csv (r'C:\Users\vince\Documents\Unil\2. Master\1e_semestre2\Machine learning\Project\Data_ammonium\PB_1996_2019_NH4.csv',delimiter=(';'))
-#train = pd.read_csv (r'C:\Users\vince\Documents\Unil\2. Master\1e_semestre2\Machine learning\Project\Data_ammonium\train.csv',delimiter=(','))
-#test = pd.read_csv (r'C:\Users\vince\Documents\Unil\2. Master\1e_semestre2\Machine learning\Project\Data_ammonium\test.csv',delimiter=(','))
+df = pd.read_csv (r'C:\Users\vince\Documents\Unil\2. Master\1e_semestre2\Machine learning\Project\Data_ammonium\PB_1996_2019_NH4.csv',
+                  delimiter=(';'))
 
+#%% ======================= Preprocessing =======================
+
+# Transform Date into Months
 df['Date'] = pd.to_datetime(df['Date'],infer_datetime_format=True); # Convert string date into Datetime
 df['DateMonth'] = df['Date'].dt.to_period('M') # Convert into monthly time series
 
-df = df.drop_duplicates(['ID_Station', 'DateMonth'])
+df = df.drop_duplicates(['ID_Station', 'DateMonth']) # remove duplicates
 
+# Separate columns into variables
 ID   = df['ID_Station'].to_numpy();
 Dist = df.drop_duplicates(['Distance']);
 Dist = Dist['Distance'].to_numpy();
@@ -32,116 +45,164 @@ ax.set_xlabel('Station ID');
 ax.set_ylabel('Distance form source [km]');
 ax.set_title('Location of stations of measure');
 
-# create figure with station and concentration
-fig, ax = plt.subplots(figsize=(8, 4));
-s = ax.scatter(ID,Conc,c = df['Date']);
-ax.set_xlabel('Station ID');
-ax.set_ylabel('Concentration of NH4 [mg/l]');
-ax.set_title('Concentrations of NH4 for each station');
-cbar = plt.colorbar(s);
-# cbar.ax.set_ticks([Date.min(),Date.max()])
-cbar.ax.set_yticklabels(df.DateMonth);
-cbar.set_label('Time');
-
-
 # reshape data
-
-Range_ID = np.arange(ID.min(),ID.max()+1,step=1);
 data = df.pivot(index='DateMonth',columns='ID_Station',values='NH4');
-Matrix = data.values
-dataOne = data.stack()
-index = dataOne.index
+MatrixNan = data.values
+dataOneCol = data.stack()
+
+# Remove nan values
+Median_station = np.nanmedian(MatrixNan,axis=0)
+
+median_dict={}
+for idx, Station_ID in np.ndenumerate(np.arange(14,35+1,1)):
+    median_dict[Station_ID] = Median_station[idx]
+
+Filled_data = data.fillna(value=median_dict)
+Matrix = Filled_data.values
+
+Matrix_tran = Matrix.transpose()
+
+# create array with ID and numeric date
+Range_ID = np.arange(ID.min(),ID.max()+1,step=1);
 Date_num = np.linspace(1,len(data),len(data));
 
 # Time serie plot
-fig, ax2 = plt.subplots(figsize=(8, 4));
-ax2.plot(Date_num,Matrix[:,9],label='Station 23');
-ax2.plot(Date_num,Matrix[:,18],label='Station 32');
-ax2.plot(Date_num,Matrix[:,1],label='Station 15');
-ax2.set_xlabel('Number of days from 01-1993');
-ax2.set_ylabel('Concentration');
-ax2.set_title('Concentration of NH4 of few stations over time');
-ax2.legend()
+fig, ax2 = plt.subplots(2,1,figsize=(14, 8));
+ax2[0].scatter(Date_num,MatrixNan[:,9],label='Station 23');
+ax2[0].scatter(Date_num,MatrixNan[:,18],label='Station 32');
+ax2[0].scatter(Date_num,MatrixNan[:,1],label='Station 15');
+ax2[0].set_ylabel('Concentration [mg/l]');
+ax2[0].set_title('With NaN values');
+ax2[0].legend()
+ax2[0].set_xticks(np.arange(0, 324, step=12),
+                ['1993','1994','1995','1996','1997','1998','1999','2000','2001','2002',
+                '2003','2004','2005','2006','2007','2008','2009','2010','2011','2012',
+                '2013','2014','2015','2016','2017','2018','2019']);
+
+ax2[1].scatter(Date_num,Matrix[:,9],label='Station 23');
+ax2[1].scatter(Date_num,Matrix[:,18],label='Station 32');
+ax2[1].scatter(Date_num,Matrix[:,1],label='Station 15');
+ax2[1].set_xlabel('Time [Months]');
+ax2[1].set_ylabel('Concentration [mg/l]');
+ax2[1].set_title('Replaced by median');
+ax2[1].legend()
+ax2[1].set_xticks(np.arange(0, 324, step=12),
+                ['1993','1994','1995','1996','1997','1998','1999','2000','2001','2002',
+                '2003','2004','2005','2006','2007','2008','2009','2010','2011','2012',
+                '2013','2014','2015','2016','2017','2018','2019']);
+plt.subplots_adjust(hspace=0.25)
+
+#%% ======================= Kmeans clustering =======================
 
 
-
-Xtime = np.array([Date_num,data.mean(axis=1).to_numpy()]);
-Xtime = Xtime.transpose();
-ytime = data.mean(axis=1).to_numpy();
-
-Xspace = np.array([Dist,data.mean(axis=0).to_numpy()]);
-Xspace = Xspace.transpose();
-yspace = data.mean(axis=0).to_numpy();
-
-# 
-# split train and test sets
-# from sklearn.model_selection import train_test_split
-# X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=42);
-
-# import Kmeans
-from sklearn.cluster import KMeans
-#from sklearn.linear_model import LogisticRegression
- 
-rnd_seed = 2022
+k = 3 # number of clusters to test
+rnd_seed = 2
 rnd_gen = np.random.default_rng(rnd_seed);
 
-km1 = KMeans(random_state = rnd_seed); # Random seed
-y_km_time = km1.fit_predict(Xtime); # Fitting to data subset
+km1 = KMeans(n_clusters=k,random_state = rnd_seed); # Random seed
+y_km1 = km1.fit_predict(Matrix); # Fitting to data
 
-# # plot the 3 clusters with time
-# fig, ax3 = plt.subplots(figsize=(16, 8));
-# ax3.scatter(Xtime[y_km_time == 0, 0], Xtime[y_km_time == 0, 1],s=50, c='lightgreen',marker='s', edgecolor='black',label='regime 0')
-# ax3.scatter(Xtime[y_km_time == 1, 0], Xtime[y_km_time == 1, 1],s=50, c='orange',marker='o', edgecolor='black',label='regime 1')
-# ax3.scatter(Xtime[y_km_time == 2, 0], Xtime[y_km_time == 2, 1],s=50, c='lightblue',marker='v', edgecolor='black',label='regime 2')
-# # plot the centroids
-# ax3.scatter(km1.cluster_centers_[:, 0], km1.cluster_centers_[:, 1],s=250, marker='*',c='red', edgecolor='black',label='centroids')
-# ax3.legend(scatterpoints=1)
-# # apparence
-# ax3.grid()
-# ax3.set_xticks(np.arange(0, 324, step=12),
-#                ['1993','1994','1995','1996','1997','1998','1999','2000','2001','2002',
-#                 '2003','2004','2005','2006','2007','2008','2009','2010','2011','2012',
-#                 '2013','2014','2015','2016','2017','2018','2019']);
-# ax3.set_xlabel('Time [months]');
-# ax3.set_ylabel('Concentration of NH4 [mg/l]');
-# ax3.set_title('Regime on the entire river throught time');
+km2 = KMeans(n_clusters=k,random_state = rnd_seed); # Random seed
+y_km2 = km2.fit_predict(Matrix_tran); # Fitting to data
 
-# km2 = KMeans(n_clusters=3, # Number of clusters to split into 
-#                       random_state = rnd_seed); # Random seed
-# y_km_space = km2.fit_predict(Xspace); # Fitting to data subset
-# # plot the 3 clusters with space
-# fig, ax4 = plt.subplots(figsize=(16, 8));
-# ax4.scatter(Xspace[y_km_space == 0, 0], Xspace[y_km_space == 0, 1],s=50, c='lightgreen',marker='s', edgecolor='black',label='regime 0')
-# ax4.scatter(Xspace[y_km_space == 1, 0], Xspace[y_km_space == 1, 1],s=50, c='orange',marker='o', edgecolor='black',label='regime 1')
-# ax4.scatter(Xspace[y_km_space == 2, 0], Xspace[y_km_space == 2, 1],s=50, c='lightblue',marker='v', edgecolor='black',label='regime 2')
-# # plot the centroids
-# ax4.scatter(km2.cluster_centers_[:, 0], km2.cluster_centers_[:, 1],s=250, marker='*',c='red', edgecolor='black',label='centroids')
-# ax4.legend(scatterpoints=1)
-# # apparence
-# ax4.grid()
-# # ax4.set_xticks(np.arange(Range, len(Range_ID), step=1),
-# #                 [Range_ID.astype(str)]);
-# ax4.set_xlabel('Distance from the source [km]');
-# ax4.set_ylabel('Concentration of NH4 [mg/l]');
-# ax4.set_title('Regime on the entire river throught space');
+# Training model with k from 2 to 6
 
-# # visualization
-# model = LogisticRegression(solver = 'lbfgs', max_iter=10000)
-# visualizer = ClassificationReport(model)
+k_list = list(range(2,7,1))
 
-# visualizer.fit(X, y)
-# #visualizer.score(X_test, y_test)
-# #visualizer.show()
+km_models1 = []
+km_models2 = []
 
+for k in k_list:
 
-# from yellowbrick.cluster import KElbowVisualizer
-# model = KMeans()
+    kmeans1 = KMeans(n_clusters=k, # Set the number of clusters 
+                      random_state = rnd_seed) # Set the random state
+    kmeans1.fit(Matrix) # Fit the model to data
+    km_models1.append(kmeans1) # store the model trained to predict  k clusters
+    
+    kmeans2 = KMeans(n_clusters=k, # Set the number of clusters 
+                      random_state = rnd_seed) # Set the random state
+    kmeans2.fit(Matrix) # Fit the model to data
+    km_models2.append(kmeans2) # store the model trained to predict  k clusters
 
-# # k is range of number of clusters.
-# visualizer = KElbowVisualizer(model, k=(5,10),metric='silhouette', timings= True)
-# visualizer.fit(X)        # Fit the data to the visualizer
-# visualizer.show()        # Finalize and render the figure
+#%% ======================= Metrics =======================
 
+# Over time 
+
+# Silhouette scores metric
+
+silhouette_scores = [silhouette_score(Matrix, model.labels_)
+                     for model in km_models1[:]]
+
+best_index = np.argmax(silhouette_scores)
+best_k = k_list[best_index]
+best_score = silhouette_scores[best_index]
+
+# Inertia metric
+inertias = [model.inertia_ for model in km_models1[:]]
+best_inertia = inertias[best_index]
+
+# Figure of the metrics
+
+fig, ax = plt.subplots(2,1,figsize=(18,6))
+ax[0].plot(k_list, silhouette_scores, "bo-") 
+ax[0].set_xlabel("$k$", fontsize=14) 
+ax[0].set_ylabel("Silhouette", fontsize=14)
+ax[0].plot(best_k, best_score, "rs")
+ax[0].set_title('Silhouette score')
+
+ax[1].plot(k_list, inertias, "bo-") 
+ax[1].plot(best_k, best_inertia, "rs")
+ax[1].set_xlabel("$k$", fontsize=14) 
+ax[1].set_ylabel("Inertia", fontsize=14)
+ax[1].set_title('Inertia score')
+plt.subplots_adjust(hspace=0.5)
+
+# Over space
+
+# Silhouette scores metric
+
+# silhouette_scores = [silhouette_score(Matrix_tran, model.labels_)
+#                      for model in km_models2[:]]
+
+# best_index = np.argmax(silhouette_scores)
+# best_k = k_list[best_index]
+# best_score = silhouette_scores[best_index]
+
+# fig, ax = plt.subplots(figsize=(18,6))
+# ax.plot(k_list, silhouette_scores, "bo-") 
+# ax.set_xlabel("$k$", fontsize=14) 
+# ax.set_ylabel("Silhouette score", fontsize=14)
+# ax.plot(best_k, best_score, "rs")
+
+# # Inertia metric
+# inertias = [model.inertia_ for model in km_models2[:]]
+# best_inertia = inertias[best_index]
+
+# fig, ax = plt.subplots(figsize=(18,6))
+# ax.plot(k_list, inertias, "bo-") 
+# ax.plot(best_k, best_inertia, "rs")
+# ax.set_xlabel("$k$", fontsize=14) 
+# ax.set_ylabel("Inertia", fontsize=14)
+
+#%% ======================= Visualization of clusters =======================
+
+fig, ax = plt.subplots(figsize=(16, 6));
+ax.scatter(Date_num, y_km1 );
+ax.set_xlabel('Time [Months]');
+ax.set_ylabel('Regime of concentration');
+ax.set_title('Clustering of the concentration over the time');
+ax.set_xticks(np.arange(0, 324, step=12),
+                ['1993','1994','1995','1996','1997','1998','1999','2000','2001','2002',
+                '2003','2004','2005','2006','2007','2008','2009','2010','2011','2012',
+                '2013','2014','2015','2016','2017','2018','2019']);
+ax.set_yticks(np.arange(0, 3, step=1));
+
+fig, ax = plt.subplots(figsize=(16, 6));
+ax.scatter(Range_ID, y_km2 );
+ax.set_xlabel('Station ID');
+ax.set_ylabel('Regime of concentration');
+ax.set_title('Clustering of the concentration over the space');
+ax.set_yticks(np.arange(0, 3, step=1));
 
 
 
